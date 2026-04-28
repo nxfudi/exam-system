@@ -52,7 +52,7 @@
     </div>
 
     <div id="resultPanel" class="result-area" style="display:none;"></div>
-    <footer>※ 主观题基于关键词自动评分，最终成绩以人事复核为准。点击“一键复制成绩”后到飞书群粘贴发送。</footer>
+    <footer>※ 简答题按中文字数评分（10-14字5分，15-24字9分，25字以上10分），并按每题满分折算。</footer>
 </div>
 
 <script>
@@ -105,9 +105,9 @@
         { text: "员工可以在工作时间利用公司设备安装个人娱乐软件。", correct: false, points: 1 }
     ];
     const shortQuestions = [
-        { text: "请简述办公用品使用管理中'厉行节约'的具体要求（至少写出三点）。", maxPoints: 6, keywords: ["双面使用","重复使用","换芯","爱惜公物","以旧换新","人为损坏赔偿"] },
-        { text: "请说明工作规范考核中关于工作微博书写的主要要求（至少写出三项考核扣分点）。", maxPoints: 6, keywords: ["未提交","未按规定时间","格式错误","字数低于200","超过500","未列明时间节点","未批阅","累计出错两次"] },
-        { text: "请简述员工离职时需要办理的主要手续及注意事项（至少写出四点）。", maxPoints: 8, keywords: ["提前30天","试用期提前7天","书面申请","交回劳保","离职手续清单","工作资料移交","解除劳动合同证明书","折旧费"] }
+        { text: "请简述办公用品使用管理中'厉行节约'的具体要求（至少写出三点）。", maxPoints: 6 },
+        { text: "请说明工作规范考核中关于工作微博书写的主要要求（至少写出三项考核扣分点）。", maxPoints: 6 },
+        { text: "请简述员工离职时需要办理的主要手续及注意事项（至少写出四点）。", maxPoints: 8 }
     ];
     const caseQuestions = [
         { text: "小张在6月份的行为中，哪些已经违反了公司规定？请逐条指出并说明可能的处罚。(10分)", maxPoints: 10, keywords: ["迟到25分钟","未考勤签到","安装游戏软件","未提交请假流程","微博字数180","低于200字","未列明时间节点","大声争吵"] },
@@ -173,11 +173,8 @@
         html += `</div>`;
 
         // 案例分析题
-// 案例分析题
-html += `<div class="section"><div class="section-title">六、案例分析题</div>`;
-
-// 添加案例背景描述
-html += `
+        html += `<div class="section"><div class="section-title">六、案例分析题</div>`;
+        html += `
 <div class="question-card" style="background:#fef9e6;">
     <div class="q-title">📖 案例背景</div>
     <div style="font-size:0.95rem; line-height:1.5;">
@@ -190,13 +187,28 @@ html += `
     </div>
 </div>
 `;
-
-caseQuestions.forEach((q, idx) => {
-    html += `<div class="question-card"><div class="q-title">${q.text}</div><textarea rows="4" class="case-answer" data-case="${idx}" placeholder="请在此作答..."></textarea></div>`;
-});
-html += `</div>`;
+        caseQuestions.forEach((q, idx) => {
+            html += `<div class="question-card"><div class="q-title">${q.text}</div><textarea rows="4" class="case-answer" data-case="${idx}" placeholder="请在此作答..."></textarea></div>`;
+        });
+        html += `</div>`;
 
         document.getElementById('examContent').innerHTML = html;
+    }
+
+    // 计算中文字符数（不含标点、数字、英文字母）
+    function countChineseChars(str) {
+        const chinese = str.replace(/[^\u4e00-\u9fa5]/g, '');
+        return chinese.length;
+    }
+
+    // 根据字数返回10分制得分
+    function scoreByLength(len) {
+        if (len === 0) return 0;
+        if (len >= 1 && len <= 9) return 0;
+        if (len >= 10 && len <= 14) return 5;
+        if (len >= 15 && len <= 24) return 9;
+        if (len >= 25) return 10;
+        return 0;
     }
 
     function calculateScore() {
@@ -234,17 +246,20 @@ html += `</div>`;
             }
         });
         total += tfScore;
-        // 简答题
+        // 简答题（按字数评分，并折算到每题满分）
         let shortScore = 0;
         document.querySelectorAll('.short-answer').forEach((ta, idx) => {
-            let answer = ta.value;
-            let matched = 0;
-            shortQuestions[idx].keywords.forEach(kw => { if (matchKeyword(answer, kw)) matched++; });
-            let points = Math.min(shortQuestions[idx].maxPoints, matched * 2);
+            const answer = ta.value;
+            const len = countChineseChars(answer);
+            const base10 = scoreByLength(len);          // 10分制得分（0,5,9,10）
+            const maxPoints = shortQuestions[idx].maxPoints; // 6,6,8
+            let points = Math.round(base10 / 10 * maxPoints);
+            // 保证不超过满分
+            if (points > maxPoints) points = maxPoints;
             shortScore += points;
         });
         total += shortScore;
-        // 案例分析
+        // 案例分析（保持原有关键词匹配）
         let caseScore = 0;
         document.querySelectorAll('.case-answer').forEach((ta, idx) => {
             let answer = ta.value;
