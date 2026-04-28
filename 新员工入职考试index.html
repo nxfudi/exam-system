@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宁夏富地房地产新员工入职培训考试</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #f0f2f5; font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1280px; margin: 0 auto; background: white; border-radius: 28px; padding: 28px 32px; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1); }
+        h1 { font-size: 1.9rem; color: #1e3c72; border-left: 5px solid #2b6e9e; padding-left: 20px; margin-top: 0; }
+        .info-bar { background: #f8fafc; border-radius: 24px; padding: 20px; display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; }
+        .info-field { flex: 1; min-width: 160px; }
+        .info-field label { font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 6px; }
+        .info-field input { width: 100%; padding: 10px 14px; border-radius: 16px; border: 1px solid #cbd5e1; }
+        .section { margin: 32px 0; }
+        .section-title { font-size: 1.4rem; font-weight: 700; background: #f1f5f9; padding: 10px 20px; border-radius: 18px; border-left: 6px solid #2b6e9e; margin-bottom: 20px; }
+        .question-card { background: #fefefe; border: 1px solid #eef2f6; border-radius: 20px; margin-bottom: 20px; padding: 18px 22px; }
+        .q-title { font-weight: 600; margin-bottom: 12px; }
+        .fill-input { width: 180px; padding: 6px 10px; margin-right: 15px; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 12px; }
+        .options { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+        .option-item { display: flex; align-items: center; gap: 10px; }
+        textarea { width: 100%; border-radius: 16px; border: 1px solid #cbd5e1; padding: 10px; font-family: inherit; resize: vertical; }
+        button { background: #1f6392; border: none; padding: 12px 28px; border-radius: 40px; font-weight: 600; color: white; cursor: pointer; margin-right: 15px; margin-top: 10px; }
+        .btn-secondary { background: #475569; }
+        .btn-copy { background: #2c6b2f; }
+        .result-area { background: #ecfdf5; border-radius: 24px; padding: 20px; margin-top: 30px; border-left: 6px solid #0e7c4b; }
+        .feishu-area { background: #f1f5f9; border-radius: 20px; padding: 18px 24px; margin: 20px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🏢 宁夏富地房地产开发有限公司<br>《新入职员工培训》试卷</h1>
+    <div class="info-bar">
+        <div class="info-field"><label>👤 姓名</label><input type="text" id="employeeName" placeholder="请输入姓名"></div>
+        <div class="info-field"><label>🏢 部门</label><input type="text" id="department" placeholder="部门"></div>
+        <div class="info-field"><label>📅 入职日期</label><input type="text" id="hireDate" placeholder="YYYY-MM-DD"></div>
+    </div>
+
+    <div id="examContent"></div>
+
+    <div class="feishu-area">
+        <span style="font-weight:500;">📢 成绩处理</span>
+        <button id="copyResultBtn" class="btn-copy">📋 一键复制成绩</button>
+        <button id="sendToFeishuBtn" class="btn-secondary">✈️ 发送到飞书（需配置Webhook）</button>
+    </div>
+
+    <div>
+        <button id="submitBtn">✅ 提交试卷 & 自动评分</button>
+        <button id="resetBtn" class="btn-secondary">🔄 重置所有答案</button>
+    </div>
+
+    <div id="resultPanel" class="result-area" style="display:none;"></div>
+</div>
+
+<script>
+    // ========== 飞书 Webhook 配置（如需自动发送请替换为真实地址） ==========
+    const FEISHU_WEBHOOK_URL = '';  // 留空则不自动发送
+    // ====================================================================
+
+    // 相似度阈值（用于填空题）
+    const SIMILARITY_THRESHOLD = 0.45;
+
+    // 同义词映射表（可扩充）
+    const SYNONYMS = {
+        "简介": ["介绍", "概述", "概况"],
+        "企业": ["公司", "集团", "富地"],
+        "文化": ["理念", "价值观"],
+        "制度": ["规章", "规定", "规范"],
+        "规范": ["规定", "制度"],
+        "权利": ["权益", "权力"],
+        "义务": ["责任", "职责"],
+        "指引": ["指南", "指导"],
+        "品质": ["质量", "品控"],
+        "细节": ["小节", "精细"],
+        "精神": ["理念", "宗旨"],
+        "诚信": ["信用", "诚实"],
+        "经营": ["运营", "管理"],
+        "循法": ["守法", "依法"],
+        "尚德": ["崇德", "重德"],
+        "部门": ["科室", "职能"],
+        "管理": ["管控", "治理"],
+        "人事": ["人力", "人力资源"],
+        "行政": ["办公", "综合"],
+        "合同": ["合约", "协议"],
+        "工程": ["项目", "施工"],
+        "财务": ["财会", "资金"],
+        "工伤": ["工伤保险", "工伤险"],
+        "失业": ["失业保险", "失业险"],
+        "医疗": ["医疗保险", "医保"],
+        "养老": ["养老保险", "养老险"],
+        "生育": ["生育保险", "生育险"],
+        "住房": ["公积金", "住房公积金"],
+        "美华家园": ["美华", "美华小区"],
+        "光华清真寺": ["光华寺", "光华清真"],
+        "清华府": ["清华府项目", "清华苑"],
+        "总经办": ["总经理办公室", "总办"],
+        "办公室": ["行政办公室", "办公部"],
+        "前期部": ["前期开发部", "前期"],
+        "成本合约部": ["成本部", "合约部"],
+        "工程管理部": ["工程部", "工程管理"],
+        "财务部": ["财务", "财务处"],
+        "考勤": ["打卡", "出勤"],
+        "微博": ["工作微博", "日报"],
+        "工作流程": ["流程", "办事流程"],
+        "工作纪律": ["纪律", "行为规范"],
+        "工作微博书写规范": ["微博规范", "书写规范"],
+        "转正申请": ["转正报告", "转正申请表"]
+    };
+
+    // ---------- 填空题数据（每空1分，共40空）----------
+    const fillBlanks = [
+        { text: "新入职员工从哪些方面了解公司：①______、②______、③______、④______、⑤______。", answers: ["企业简介","企业文化","制度规范","权利义务","职场指引"] },
+        { text: "公司创建于______年，是一家追求卓越、专注______和______的专业房地产开发企业。", answers: ["2009","品质","细节"] },
+        { text: "公司创建以来，坚持弘扬______、______、______，秉承专业精神和敬业作风。", answers: ["富地精神","诚信经营","循法尚德"] },
+        { text: "现行公司规章制度包括①______、②______、③______、④______、⑤______、⑥______。", answers: ["部门管理","人事管理","行政管理","合同管理","工程管理","财务管理"] },
+        { text: "公司为员工缴纳的五险一金是：①______、②______、③______、④______、⑤______、⑥______。", answers: ["工伤保险","失业保险","医疗保险","养老保险","生育保险","住房公积金"] },
+        { text: "新一中周边公司已交付使用的项目：①______、②______、③______。", answers: ["美华家园","光华清真寺","清华府"] },
+        { text: "公司下设职能部门：①______、②______、③______、④______、⑤______、⑥______。", answers: ["总经办","办公室","前期部","成本合约部","工程管理部","财务部"] },
+        { text: "工作规范从考勤考核、①______、②______、③______、④______五个维度进行考评。", answers: ["工作微博","工作流程规范","工作纪律","工作微博书写规范"] },
+        { text: "员工工装自配发之日起未满______年离职时扣除折旧费，公式分母为______个月，括号内为______个月减累计月数。", answers: ["2","24","24"] },
+        { text: "新聘用员工试用期满，需提交______和述职报告。", answers: ["转正申请"] }
+    ];
+
+    // ---------- 2. 判断题（每题1分）----------
+    const trueFalse = [
+        { text: "领导者和被领导者是职责不同的共同工作关系，应注意加强感情交流，相互理解、相互支持、相互信任和相互激励。", correct: true },
+        { text: "会议或培训中手机铃声一律调至静音，电话铃声响一次罚款50元。", correct: true },
+        { text: "正式员工离职必须提前30天以书面形式提出离职申请，离职过程中应遵守公司规章制度，认真履行原岗位工作职责，做好离职交接工作。", correct: true },
+        { text: "永乐家园是公司开发的第一个住宅项目。", correct: true },
+        { text: "富地公司营造'工作在富地、成长在富地、发展在富地、奉献在富地、成功在富地'的人才职业发展生态环境。", correct: true },
+        { text: "员工迟到/早退30分钟至2小时（含）以内处罚200元，当月迟到/早退3次及以上，公司有权予以辞退。", correct: true },
+        { text: "公司病假医疗期根据员工司龄时间，最长为6个月，病假连续超过6个月，超出天数按事假核定。", correct: true },
+        { text: "员工离职后，因岗位工作成果需一定时间复核，离职员工的工资暂缓一个月发放。", correct: true },
+        { text: "员工旷工半天扣罚1天工资，旷工一天扣罚2天工资，年度累计旷工3天者，公司有权予以辞退。", correct: true },
+        { text: "请假应提前向部门负责人申请，经批准后，在休假前通过公司办公协同飞书平台履行请假手续，并注明事由和时间。", correct: true }
+    ];
+
+    // ---------- 3. 单选题（每题2分）----------
+    const singleChoices = [
+        { text: "公司的宏伟愿景（ ）。", options: ["A. 以人为本，和谐共存", "B. 富地地产创造美好生活", "C. 以产品和服务创造价值", "D. 超越自我，打造精品"], correct: "B" },
+        { text: "事假（ ），无绩效工资。", options: ["A. 3天", "B. 3天至10天（含）以内", "C. 10天至15天", "D. 超过15天"], correct: "C" },
+        { text: "（ ）是银川第一个中式清真寺。", options: ["A. 南关清真寺", "B. 纳家户清真寺", "C. 光华清真寺", "D. 西关清真寺"], correct: "C" },
+        { text: "负责工作规范考核及监督检查的部门是（ ）。", options: ["A. 总经办", "B. 前期部", "C. 办公室", "D. 财务部"], correct: "C" },
+        { text: "上级领导交办的需暂时保密的工作资料，需妥善保管，离开办公桌时应（ ）。", options: ["A. 随身携带", "B. 放在抽屉里锁好", "C. 放办公桌上", "D. 放文件筐里"], correct: "B" }
+    ];
+
+    // ---------- 4. 多选题（每题2分，全对得分）----------
+    const multiChoices = [
+        { text: "树立正确的团队价值观包括（ ）。", options: ["A. 正派", "B. 利他", "C. 担当", "D. 创新"], correct: ["A","B","C","D"] },
+        { text: "公司对外宣传窗口（ ）。", options: ["A. 官方网站", "B. 协同办公系统", "C. 企业微信公众号", "D. 户外广告"], correct: ["A","B","C","D"] },
+        { text: "主要通过（ ）了解自己的职务。", options: ["A. 责任、权限、义务的关联性", "B. 自我认知", "C. 培训", "D. 了解岗位工作的前期与后期工作开展及对接情况"], correct: ["A","B","C"] },
+        { text: "公司愿意为具备职场评选潜质（ ）提供发展平台。", options: ["A. 持续学习、终身学习的人", "B. 有梦想、充满激情的人", "C. 愿意承担/有责任感的人", "D. 拥有扎实专业知识和技能的人", "E. 合作/成就他人的人"], correct: ["A","B","C","D","E"] },
+        { text: "季度员工评选奖项设置（ ）。", options: ["A. 小蜜蜂勤勉奖", "B. 责任奖", "C. 创新之星", "D. 新锐奖"], correct: ["A","B","C","D"] }
+    ];
+
+    // ---------- 5. 简答题（按字数评分）----------
+    const shortQuestions = [
+        { text: "简述公司企业理念。", maxPoints: 10, scoring: "length" },
+        { text: "简述新入职员工具备的四个方面要求。", maxPoints: 10, scoring: "length" },
+        { text: "简述八个职场行为习惯。", maxPoints: 9, scoring: "length" }
+    ];
+
+    // 计算中文字符数（不含标点、字母、数字）
+    function countChineseChars(str) {
+        const chinese = str.replace(/[^\u4e00-\u9fa5]/g, '');
+        return chinese.length;
+    }
+
+    function scoreByLength(text, maxPoints) {
+        const len = countChineseChars(text);
+        if (len < 15) return 5;
+        if (len >= 15 && len <= 19) {
+            return (maxPoints === 10) ? 9 : 8;
+        }
+        if (len >= 20) {
+            return (maxPoints === 10) ? 10 : 9;
+        }
+        return 0;
+    }
+
+    // 填空题智能匹配函数（集合匹配，顺序无关）
+    function cleanText(s) {
+        return (s || "").toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]/g, '');
+    }
+
+    function sortString(str) {
+        return str.split('').sort().join('');
+    }
+
+    function applySynonyms(text) {
+        let result = text;
+        for (let [standard, variants] of Object.entries(SYNONYMS)) {
+            for (let v of variants) {
+                const regex = new RegExp(v, 'gi');
+                result = result.replace(regex, standard);
+            }
+        }
+        return result;
+    }
+
+    function lcsRatio(a, b) {
+        const m = a.length, n = b.length;
+        if (m === 0 || n === 0) return 0;
+        let dp = new Array(n+1).fill(0);
+        for (let i = 1; i <= m; i++) {
+            let prev = 0;
+            for (let j = 1; j <= n; j++) {
+                let temp = dp[j];
+                if (a[i-1] === b[j-1]) dp[j] = prev + 1;
+                else dp[j] = Math.max(dp[j], dp[j-1]);
+                prev = temp;
+            }
+        }
+        return dp[n] / Math.max(m, n);
+    }
+
+    function jaccardSimilarity(str1, str2) {
+        const set1 = new Set(str1.split(''));
+        const set2 = new Set(str2.split(''));
+        const inter = new Set([...set1].filter(ch => set2.has(ch)));
+        const union = new Set([...set1, ...set2]);
+        return inter.size / union.size;
+    }
+
+    function overallSimilarity(userInput, standardAnswer) {
+        let u = cleanText(userInput);
+        let s = cleanText(standardAnswer);
+        if (u === s) return 1.0;
+        if (u === "" || s === "") return 0.0;
+        u = applySynonyms(u);
+        s = applySynonyms(s);
+        const lcs = lcsRatio(u, s);
+        const jacc = jaccardSimilarity(u, s);
+        let lenPenalty = 1.0;
+        if (u.length < s.length * 0.5) lenPenalty = 0.6;
+        if (u.length < s.length * 0.3) lenPenalty = 0.3;
+        return (lcs * 0.7 + jacc * 0.3) * lenPenalty;
+    }
+
+    function isSingleMatch(userVal, correctAns) {
+        if (!userVal || userVal.trim() === "") return false;
+        if (/^\d+$/.test(correctAns)) return userVal.trim() === correctAns;
+        let u = cleanText(userVal);
+        let s = cleanText(correctAns);
+        if (sortString(u) === sortString(s)) return true;
+        u = applySynonyms(u);
+        s = applySynonyms(s);
+        const sim = overallSimilarity(u, s);
+        return sim >= SIMILARITY_THRESHOLD;
+    }
+
+    function scoreFillBlanksGroup(userInputs, correctAnswers) {
+        const used = new Array(correctAnswers.length).fill(false);
+        let totalScore = 0;
+        for (let i = 0; i < userInputs.length; i++) {
+            for (let j = 0; j < correctAnswers.length; j++) {
+                if (!used[j] && isSingleMatch(userInputs[i], correctAnswers[j])) {
+                    totalScore++;
+                    used[j] = true;
+                    break;
+                }
+            }
+        }
+        return totalScore;
+    }
+
+    let lastScoreObj = null;
+
+    function renderExam() {
+        let html = '';
+        // 填空题
+        html += `<div class="section"><div class="section-title">一、填空题（每空1分，共40分）</div>`;
+        fillBlanks.forEach((item, idx) => {
+            let inputs = '';
+            for (let i = 0; i < item.answers.length; i++) {
+                inputs += `<input type="text" class="fill-input" data-fb="${idx}" data-slot="${i}" placeholder="空${i+1}" style="width:150px;">`;
+            }
+            html += `<div class="question-card"><div class="q-title">${idx+1}. ${item.text}</div><div>${inputs}</div></div>`;
+        });
+        html += `</div>`;
+
+        // 判断题
+        html += `<div class="section"><div class="section-title">二、判断题（每题1分，共10分）</div>`;
+        trueFalse.forEach((q, idx) => {
+            html += `<div class="question-card"><div class="q-title">${idx+1}. ${q.text}</div><div class="options">
+                        <label><input type="radio" name="tf_${idx}" value="true"> ✔ 正确</label>
+                        <label><input type="radio" name="tf_${idx}" value="false"> ✘ 错误</label>
+                    </div></div>`;
+        });
+        html += `</div>`;
+
+        // 单选题
+        html += `<div class="section"><div class="section-title">三、单项选择题（每题2分，共10分）</div>`;
+        singleChoices.forEach((q, idx) => {
+            let opts = '';
+            q.options.forEach(opt => {
+                let val = opt.charAt(0);
+                opts += `<label class="option-item"><input type="radio" name="single_${idx}" value="${val}"> ${opt}</label>`;
+            });
+            html += `<div class="question-card"><div class="q-title">${idx+1}. ${q.text}</div><div class="options">${opts}</div></div>`;
+        });
+        html += `</div>`;
+
+        // 多选题
+        html += `<div class="section"><div class="section-title">四、多项选择题（每题2分，共10分）</div>`;
+        multiChoices.forEach((q, idx) => {
+            let opts = '';
+            q.options.forEach(opt => {
+                let val = opt.charAt(0);
+                opts += `<label class="option-item"><input type="checkbox" name="multi_${idx}" value="${val}"> ${opt}</label>`;
+            });
+            html += `<div class="question-card"><div class="q-title">${idx+1}. ${q.text}</div><div class="options">${opts}</div></div>`;
+        });
+        html += `</div>`;
+
+        // 简答题
+        html += `<div class="section"><div class="section-title">五、简答题（共30分）</div>`;
+        shortQuestions.forEach((q, idx) => {
+            html += `<div class="question-card"><div class="q-title">${idx+1}. ${q.text}</div><textarea rows="4" class="short-answer" data-short="${idx}" placeholder="请在此作答..."></textarea><div class="q-title" style="font-size:0.8rem; color:#666; margin-top:5px;">（字数评分标准：0-14字5分，15-19字${idx===2?'8分':'9分'}，20字以上${idx===2?'9分':'10分'}）</div></div>`;
+        });
+        html += `</div>`;
+
+        document.getElementById('examContent').innerHTML = html;
+    }
+
+    function calculateScore() {
+        let total = 0;
+        const details = [];
+
+        // 填空题
+        let fillScore = 0;
+        fillBlanks.forEach((item, idx) => {
+            const userAnswers = [];
+            for (let s = 0; s < item.answers.length; s++) {
+                const input = document.querySelector(`.fill-input[data-fb="${idx}"][data-slot="${s}"]`);
+                userAnswers.push(input ? input.value.trim() : "");
+            }
+            fillScore += scoreFillBlanksGroup(userAnswers, item.answers);
+        });
+        total += fillScore;
+        details.push(`填空题得分: ${fillScore}/40`);
+
+        // 判断题
+        let tfScore = 0;
+        trueFalse.forEach((q, idx) => {
+            const selected = document.querySelector(`input[name="tf_${idx}"]:checked`);
+            if (selected && (selected.value === 'true') === q.correct) tfScore++;
+        });
+        total += tfScore;
+        details.push(`判断题得分: ${tfScore}/10`);
+
+        // 单选题
+        let singleScore = 0;
+        singleChoices.forEach((q, idx) => {
+            const selected = document.querySelector(`input[name="single_${idx}"]:checked`);
+            if (selected && selected.value === q.correct) singleScore += 2;
+        });
+        total += singleScore;
+        details.push(`单选题得分: ${singleScore}/10`);
+
+        // 多选题
+        let multiScore = 0;
+        multiChoices.forEach((q, idx) => {
+            const selected = Array.from(document.querySelectorAll(`input[name="multi_${idx}"]:checked`)).map(cb => cb.value);
+            const sortedSel = [...selected].sort();
+            const sortedCor = [...q.correct].sort();
+            if (sortedSel.length === sortedCor.length && sortedSel.every((v,i) => v === sortedCor[i])) multiScore += 2;
+        });
+        total += multiScore;
+        details.push(`多选题得分: ${multiScore}/10`);
+
+        // 简答题（按字数评分）
+        let shortScore = 0;
+        const shortTextareas = document.querySelectorAll('.short-answer');
+        shortQuestions.forEach((q, idx) => {
+            const answer = shortTextareas[idx]?.value || "";
+            const points = scoreByLength(answer, q.maxPoints);
+            shortScore += points;
+        });
+        total += shortScore;
+        details.push(`简答题得分: ${shortScore}/30`);
+
+        return { total: Math.min(100, total), details };
+    }
+
+    function showResult() {
+        const name = document.getElementById('employeeName').value.trim() || "未填写";
+        const dept = document.getElementById('department').value.trim() || "未填写";
+        const date = document.getElementById('hireDate').value.trim() || "未填写";
+        const { total, details } = calculateScore();
+        lastScoreObj = { name, dept, total, details, date };
+        const resultHtml = `<div><span style="font-size:1.8rem;font-weight:bold;">🎯 最终得分: ${total} 分</span> (满分100)<br/><br/><strong>明细：</strong><ul>${details.map(d=>`<li>${d}</li>`).join('')}</ul><p>${total>=60 ? "✅ 合格，欢迎加入富地大家庭！" : "⚠️ 未通过，请复习后补考"}</p></div>`;
+        document.getElementById('resultPanel').innerHTML = resultHtml;
+        document.getElementById('resultPanel').style.display = 'block';
+        if (FEISHU_WEBHOOK_URL && lastScoreObj) sendToFeishu(true);
+    }
+
+    function copyResult() {
+        if (!lastScoreObj) { alert("请先提交试卷！"); return; }
+        const { name, dept, total, details, date } = lastScoreObj;
+        const detailText = details.join("\n");
+        const msg = `🏢 宁夏富地房地产新员工培训考试成绩\n姓名：${name}\n部门：${dept}\n日期：${date}\n总分：${total}/100\n明细：\n${detailText}\n${total>=60?"状态：合格":"状态：待补考"}`;
+        navigator.clipboard.writeText(msg).then(() => alert("✅ 成绩已复制！")).catch(() => alert("复制失败，可手动选中"));
+    }
+
+    async function sendToFeishu(silent = false) {
+        if (!FEISHU_WEBHOOK_URL) { if(!silent) alert("未配置Webhook"); return; }
+        if (!lastScoreObj) return;
+        const { name, dept, total, details, date } = lastScoreObj;
+        const detailText = details.join("\n");
+        const payload = { msg_type: "text", content: { text: `🏢 富地考试成绩\n姓名：${name}\n总分：${total}/100\n明细：\n${detailText}` } };
+        try {
+            const res = await fetch(FEISHU_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok && !silent) alert("✅ 已发送");
+            else if (!res.ok && !silent) alert("❌ 发送失败");
+        } catch(e) { if(!silent) alert("异常："+e.message); }
+    }
+
+    function resetExam() {
+        document.querySelectorAll('input, textarea').forEach(el => el.value = '');
+        document.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => el.checked = false);
+        document.getElementById('resultPanel').style.display = 'none';
+        lastScoreObj = null;
+    }
+
+    window.onload = () => {
+        renderExam();
+        document.getElementById('submitBtn').addEventListener('click', showResult);
+        document.getElementById('resetBtn').addEventListener('click', resetExam);
+        document.getElementById('copyResultBtn').addEventListener('click', copyResult);
+        document.getElementById('sendToFeishuBtn').addEventListener('click', () => sendToFeishu(false));
+    };
+</script>
+</body>
+</html>
